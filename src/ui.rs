@@ -1,17 +1,15 @@
-use ratatui::{
-    Terminal,
-    backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout},
-    widgets::{BarChart, Block, Borders},
-};
-
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-
-use spectrum_analyzer::FrequencySpectrum;
+use ratatui::{
+    Terminal,
+    backend::CrosstermBackend,
+    style::{Color, Style},
+    symbols::Marker,
+    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType},
+};
 use std::io::{self, Stdout};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -26,13 +24,43 @@ pub fn start_ui(audio_data: Arc<Mutex<Vec<f32>>>) -> anyhow::Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     loop {
-        terminal.draw(|f| {
-            let size = f.area();
-            let now = Local::now();
-            let time_str = now.format("%H:%M:%S").to_string();
-            let block = Block::default().title(time_str).borders(Borders::ALL);
-            f.render_widget(block, size);
-        })?;
+        {
+            let mut data: Vec<f32> = Vec::new();
+            let lock = audio_data.lock().unwrap();
+            if lock.len() >= 4096 {
+                data = lock.clone();
+                drop(lock);
+            }
+            if !data.is_empty() {
+                let width = 200;
+                let skip = data.len() / width;
+                let mut points = Vec::new();
+
+                for (i, val) in data.iter().step_by(skip).take(width).enumerate() {
+                    points.push((i as f64, *val as f64));
+                }
+
+                terminal.draw(|f| {
+                    let size = f.area();
+
+                    let datasets = vec![
+                        Dataset::default()
+                            .name("Wave")
+                            .marker(Marker::Dot)
+                            .graph_type(GraphType::Line)
+                            .style(Style::default().fg(Color::White))
+                            .data(&points),
+                    ];
+
+                    let chart = Chart::new(datasets)
+                        .block(Block::default().title("Now Playing").borders(Borders::ALL))
+                        .x_axis(Axis::default().bounds([0.0, width as f64]))
+                        .y_axis(Axis::default().bounds([-1.0, 1.0]));
+
+                    f.render_widget(chart, size);
+                })?;
+            }
+        }
 
         if event::poll(Duration::from_millis(16))? {
             if let Event::Key(key) = event::read()? {

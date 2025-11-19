@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 fn main() {
     println!("Hello, world!");
     let audio_data = Arc::new(Mutex::new(Vec::new()));
-    let a = audio_capture::start_audio_capture(audio_data.clone());
+    let _a = audio_capture::start_audio_capture(audio_data.clone());
     let b = query_apple_music();
     println!("{:?}", b);
     // let stream = a.unwrap();
@@ -24,7 +24,9 @@ fn main() {
     //     std::thread::sleep(std::time::Duration::from_millis(50));
     // }
 
-    ui::start_ui(audio_data);
+    if let Err(e) = ui::start_ui(audio_data) {
+        eprintln!("UI Error: {}", e);
+    }
 }
 fn query_apple_music() -> Option<TrackInfo> {
     let script = r#"
