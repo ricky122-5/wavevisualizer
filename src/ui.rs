@@ -1,3 +1,4 @@
+use crate::album_art;
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -9,6 +10,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Style},
     symbols::Marker,
+    text::Line,
     widgets::{Axis, Block, Borders, Chart, Dataset, Gauge, GraphType, Paragraph},
 };
 use std::io::{self, Stdout};
@@ -28,7 +30,9 @@ pub fn start_ui(
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-
+    let mut cached_cover_path = String::new();
+    let mut cached_song_name = String::new();
+    let mut cached_art_lines: Vec<Line<'static>> = Vec::new();
     loop {
         {
             let mut data: Vec<f32> = Vec::new();
@@ -53,6 +57,11 @@ pub fn start_ui(
                         let dur = inf.duration.parse::<f64>().unwrap_or(1.0);
                         ratio = (pos / dur).clamp(0.0, 1.0);
                         current_song = format!("{} by {}", inf.name, inf.artist);
+                        if inf.cover != cached_cover_path || inf.name != cached_song_name {
+                            cached_cover_path = inf.cover.clone();
+                            cached_song_name = inf.name.clone();
+                            cached_art_lines = album_art::load_album_art(&inf.cover, 60, 22);
+                        }
                     }
                 }
 
@@ -79,6 +88,9 @@ pub fn start_ui(
                     let p = Paragraph::new(current_song)
                         .alignment(Alignment::Center)
                         .block(info_block);
+                    let art = Paragraph::new(cached_art_lines.clone())
+                        .alignment(Alignment::Center)
+                        .block(Block::default().borders(Borders::ALL));
 
                     let right_chunks = Layout::default()
                         .direction(Direction::Vertical)
@@ -90,11 +102,12 @@ pub fn start_ui(
                         .split(chunks[1]);
                     let gauge = Gauge::default()
                         .block(Block::default().title("Progress").borders(Borders::ALL))
-                        .gauge_style(Style::default().fg(Color::White))
+                        .gauge_style(Style::default().fg(Color::Indexed(208)))
                         .ratio(ratio);
                     f.render_widget(p, right_chunks[0]);
                     f.render_widget(chart, chunks[0]);
                     f.render_widget(gauge, right_chunks[2]);
+                    f.render_widget(art, right_chunks[1]);
                 })?;
             }
         }

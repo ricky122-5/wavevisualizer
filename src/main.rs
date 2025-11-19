@@ -1,3 +1,4 @@
+mod album_art;
 mod audio_capture;
 mod metadata;
 mod spectrum;
