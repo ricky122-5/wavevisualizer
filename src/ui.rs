@@ -6,9 +6,10 @@ use crossterm::{
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
+    layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Style},
     symbols::Marker,
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType},
+    widgets::{Axis, Block, Borders, Chart, Dataset, Gauge, GraphType, Paragraph},
 };
 use std::io::{self, Stdout};
 use std::sync::{Arc, Mutex};
@@ -16,7 +17,12 @@ use std::time::Duration;
 
 use chrono::Local;
 
-pub fn start_ui(audio_data: Arc<Mutex<Vec<f32>>>) -> anyhow::Result<()> {
+use crate::metadata::TrackInfo;
+
+pub fn start_ui(
+    audio_data: Arc<Mutex<Vec<f32>>>,
+    info: Arc<Mutex<Option<TrackInfo>>>,
+) -> anyhow::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
@@ -39,16 +45,24 @@ pub fn start_ui(audio_data: Arc<Mutex<Vec<f32>>>) -> anyhow::Result<()> {
                 for (i, val) in data.iter().step_by(skip).take(width).enumerate() {
                     points.push((i as f64, *val as f64));
                 }
+                let mut ratio = 0.0;
+                let mut current_song = String::from("No music playing");
+                if let Ok(lock) = info.lock() {
+                    if let Some(inf) = &*lock {
+                        let pos = inf.position.parse::<f64>().unwrap_or(0.0);
+                        let dur = inf.duration.parse::<f64>().unwrap_or(1.0);
+                        ratio = (pos / dur).clamp(0.0, 1.0);
+                        current_song = format!("{} by {}", inf.name, inf.artist);
+                    }
+                }
 
                 terminal.draw(|f| {
                     let size = f.area();
-
                     let datasets = vec![
                         Dataset::default()
-                            .name("Wave")
                             .marker(Marker::Dot)
                             .graph_type(GraphType::Line)
-                            .style(Style::default().fg(Color::White))
+                            .style(Style::default().fg(Color::Indexed(208)))
                             .data(&points),
                     ];
 
@@ -57,7 +71,30 @@ pub fn start_ui(audio_data: Arc<Mutex<Vec<f32>>>) -> anyhow::Result<()> {
                         .x_axis(Axis::default().bounds([0.0, width as f64]))
                         .y_axis(Axis::default().bounds([-1.0, 1.0]));
 
-                    f.render_widget(chart, size);
+                    let chunks = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+                        .split(size);
+                    let info_block = Block::default().title("Song Info").borders(Borders::ALL);
+                    let p = Paragraph::new(current_song)
+                        .alignment(Alignment::Center)
+                        .block(info_block);
+
+                    let right_chunks = Layout::default()
+                        .direction(Direction::Vertical)
+                        .constraints([
+                            Constraint::Length(3),
+                            Constraint::Min(2),
+                            Constraint::Length(3),
+                        ])
+                        .split(chunks[1]);
+                    let gauge = Gauge::default()
+                        .block(Block::default().title("Progress").borders(Borders::ALL))
+                        .gauge_style(Style::default().fg(Color::White))
+                        .ratio(ratio);
+                    f.render_widget(p, right_chunks[0]);
+                    f.render_widget(chart, chunks[0]);
+                    f.render_widget(gauge, right_chunks[2]);
                 })?;
             }
         }
