@@ -1,4 +1,6 @@
 mod audio_capture;
+mod spectrum;
+mod ui;
 
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -6,9 +8,23 @@ use std::sync::{Arc, Mutex};
 fn main() {
     println!("Hello, world!");
     let audio_data = Arc::new(Mutex::new(Vec::new()));
-    let a = audio_capture::start_audio_capture(audio_data);
+    let a = audio_capture::start_audio_capture(audio_data.clone());
     let b = query_apple_music();
     println!("{:?}", b);
+    // let stream = a.unwrap();
+    // loop {
+    //     let mut lock = audio_data.lock().unwrap();
+    //     if lock.len() < 4096 {
+    //         continue;
+    //     }
+    //     let data = lock.clone();
+    //     println!("Samples: {:?}", &data[0..5]);
+    //     let res = spectrum::compute_spectrum(&data, 48000);
+    //     println!("Max Freq: {:?}", res.unwrap().max());
+    //     std::thread::sleep(std::time::Duration::from_millis(50));
+    // }
+
+    ui::start_ui(audio_data);
 }
 fn query_apple_music() -> Option<TrackInfo> {
     let script = r#"
