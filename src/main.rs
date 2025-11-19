@@ -10,7 +10,6 @@ use std::{
 };
 
 fn main() {
-    println!("Hello, world!");
     let audio_data = Arc::new(Mutex::new(Vec::new()));
     let _a = audio_capture::start_audio_capture(audio_data.clone());
     let b = metadata::query_apple_music();
@@ -25,7 +24,6 @@ fn main() {
             std::thread::sleep(Duration::from_secs(1));
         }
     });
-    println!("{:?}", b);
     // let stream = a.unwrap();
     // loop {
     //     let mut lock = audio_data.lock().unwrap();
@@ -40,6 +38,6 @@ fn main() {
     // }
 
     if let Err(e) = ui::start_ui(audio_data, song_info) {
-        eprintln!("UI Error: {}", e);
+        println!("UI Error: {}", e);
     }
 }

@@ -33,19 +33,16 @@ pub fn query_apple_music() -> Option<TrackInfo> {
         .expect("Failed to execute osascript");
 
     if !output.status.success() {
-        println!("Failed to execute osascript");
         return None;
     }
 
     let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if result == "STOPPED" {
-        println!("Music is not playing");
         return None;
     }
 
     let track_info: Vec<&str> = result.split("|||").collect();
     if track_info.len() < 6 {
-        println!("Failed to parse track info");
         return None;
     }
 

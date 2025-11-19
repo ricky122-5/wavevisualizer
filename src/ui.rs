@@ -33,6 +33,7 @@ pub fn start_ui(
     let mut cached_cover_path = String::new();
     let mut cached_song_name = String::new();
     let mut cached_art_lines: Vec<Line<'static>> = Vec::new();
+    let mut smoothed_max = 0.1;
     loop {
         {
             let mut data: Vec<f32> = Vec::new();
@@ -49,6 +50,17 @@ pub fn start_ui(
                 for (i, val) in data.iter().step_by(skip).take(width).enumerate() {
                     points.push((i as f64, *val as f64));
                 }
+
+                let current_max = data
+                    .iter()
+                    .map(|v| v.abs())
+                    .fold(0.0f32, |a, b| a.max(b))
+                    .max(0.05);
+
+                smoothed_max = smoothed_max * 0.85 + current_max * 0.15;
+
+                let y_bound = (smoothed_max * 1.2).min(1.0).max(0.1);
+
                 let mut ratio = 0.0;
                 let mut current_song = String::from("No music playing");
                 if let Ok(lock) = info.lock() {
@@ -78,7 +90,7 @@ pub fn start_ui(
                     let chart = Chart::new(datasets)
                         .block(Block::default().title("Now Playing").borders(Borders::ALL))
                         .x_axis(Axis::default().bounds([0.0, width as f64]))
-                        .y_axis(Axis::default().bounds([-1.0, 1.0]));
+                        .y_axis(Axis::default().bounds([-y_bound as f64, y_bound as f64]));
 
                     let chunks = Layout::default()
                         .direction(Direction::Horizontal)
@@ -96,7 +108,7 @@ pub fn start_ui(
                         .direction(Direction::Vertical)
                         .constraints([
                             Constraint::Length(3),
-                            Constraint::Min(2),
+                            Constraint::Min(10),
                             Constraint::Length(3),
                         ])
                         .split(chunks[1]);
