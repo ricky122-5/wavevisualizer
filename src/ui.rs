@@ -1,4 +1,4 @@
-use crate::album_art;
+use crate::album_art::{self, get_avg_color};
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -24,6 +24,8 @@ use crate::metadata::TrackInfo;
 pub fn start_ui(
     audio_data: Arc<Mutex<Vec<f32>>>,
     info: Arc<Mutex<Option<TrackInfo>>>,
+    mut color: Color,
+    setAColor: bool,
 ) -> anyhow::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -33,6 +35,7 @@ pub fn start_ui(
     let mut cached_cover_path = String::new();
     let mut cached_song_name = String::new();
     let mut cached_art_lines: Vec<Line<'static>> = Vec::new();
+    let mut cached_album_name = String::new();
     let mut smoothed_max = 0.1;
     loop {
         {
@@ -73,6 +76,10 @@ pub fn start_ui(
                             cached_cover_path = inf.cover.clone();
                             cached_song_name = inf.name.clone();
                             cached_art_lines = album_art::load_album_art(&inf.cover, 60, 22);
+                            if setAColor {
+                                color = get_avg_color(&inf.cover);
+                            }
+                            cached_album_name = inf.album.clone();
                         }
                     }
                 }
@@ -83,7 +90,7 @@ pub fn start_ui(
                         Dataset::default()
                             .marker(Marker::Dot)
                             .graph_type(GraphType::Line)
-                            .style(Style::default().fg(Color::Indexed(208)))
+                            .style(Style::default().fg(color))
                             .data(&points),
                     ];
 
@@ -97,12 +104,16 @@ pub fn start_ui(
                         .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
                         .split(size);
                     let info_block = Block::default().title("Song Info").borders(Borders::ALL);
+                    let album_block = Block::default().borders(Borders::ALL);
                     let p = Paragraph::new(current_song)
                         .alignment(Alignment::Center)
                         .block(info_block);
-                    let art = Paragraph::new(cached_art_lines.clone())
+                    let mut art_content = cached_art_lines.clone();
+                    art_content.push(Line::from(""));
+                    art_content.push(Line::from(cached_album_name.clone()));
+                    let art = Paragraph::new(art_content)
                         .alignment(Alignment::Center)
-                        .block(Block::default().borders(Borders::ALL));
+                        .block(album_block);
 
                     let right_chunks = Layout::default()
                         .direction(Direction::Vertical)
@@ -114,7 +125,7 @@ pub fn start_ui(
                         .split(chunks[1]);
                     let gauge = Gauge::default()
                         .block(Block::default().title("Progress").borders(Borders::ALL))
-                        .gauge_style(Style::default().fg(Color::Indexed(208)))
+                        .gauge_style(Style::default().fg(color))
                         .ratio(ratio);
                     f.render_widget(p, right_chunks[0]);
                     f.render_widget(chart, chunks[0]);

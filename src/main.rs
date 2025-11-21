@@ -9,7 +9,18 @@ use std::{
     time::Duration,
 };
 
+use ratatui::style::Color;
+
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let color: Color;
+    let album_color: bool = args[1] == "album";
+    if args.len() > 1 {
+        color = parse_color(args[1].as_str());
+    } else {
+        color = Color::Red;
+    }
+
     let audio_data = Arc::new(Mutex::new(Vec::new()));
     let _a = audio_capture::start_audio_capture(audio_data.clone());
     let b = metadata::query_apple_music();
@@ -37,7 +48,19 @@ fn main() {
     //     std::thread::sleep(std::time::Duration::from_millis(50));
     // }
 
-    if let Err(e) = ui::start_ui(audio_data, song_info) {
+    if let Err(e) = ui::start_ui(audio_data, song_info, color, album_color) {
         println!("UI Error: {}", e);
+    }
+}
+
+fn parse_color(s: &str) -> Color {
+    match s.to_lowercase().as_str() {
+        "red" => Color::Red,
+        "blue" => Color::LightBlue,
+        "green" => Color::LightGreen,
+        "yellow" => Color::Yellow,
+        "orange" => Color::Indexed(208),
+        "purple" => Color::Magenta,
+        _ => Color::Red,
     }
 }
