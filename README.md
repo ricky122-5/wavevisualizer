@@ -1,6 +1,8 @@
 # WaveViz
 
 A real-time music visualizer for macOS that displays waveforms, album art, and track info right in your terminal.
+<img width="1512" height="947" alt="Screenshot 2025-12-03 at 10 55 05 PM" src="https://github.com/user-attachments/assets/d84f9b1e-6dce-4b86-809e-9f0101ba3efc" />
+
 
 ## What is this?
 
